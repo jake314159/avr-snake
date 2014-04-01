@@ -1,2 +1,2 @@
-AVR-simple-draw
+AVR-snake
 ===============
