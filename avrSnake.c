@@ -115,8 +115,6 @@
 /* #define DZ DDRD=0; PORTD=0; */
 #define CZ DDRD=0; PORTD=0;
 
-#define STEP_SIZE 4
-
 /*
    Copyright (c) 2013 Frank Vahid, Tony Givargis, and
    Bailey Miller. Univ. of California, Riverside and Irvine.
@@ -139,7 +137,7 @@ const double tick_ms = 1.0;  /* Real time between ticks in ms */
 const unsigned long tasksPeriodGCD = 1;  // Timer tick rate
 const unsigned long rotor_time = 1; //Every 1 ms
 const unsigned long button_time = 40;
-const unsigned long draw_time = 70;
+const unsigned long draw_time = 150;
 const unsigned long period4 = 200;
 
 // Stores the value of the scroll wheel
@@ -158,25 +156,45 @@ unsigned char currentTask = 0; // Index of highest priority task in runningTasks
 
 uint8_t ddrc, portc;
 
-#define WHITE       0xFFFF
-#define BLACK       0x0000
-#define BLUE        0x001F      
-#define GREEN       0x07E0      
-#define CYAN        0x07FF      
-#define RED         0xF800      
-#define MAGENTA     0xF81F      
-#define YELLOW      0xFFE0  
 
 //Black
 #define BACKGROUND_COLOR 0x0000 
+
+#define STEP_SIZE 4
+#define BLOCK_SIZE 14
+#define GRID_START_X 14
+#define GRID_START_Y 14
+#define GRID_SIZE_X 14
+#define GRID_SIZE_Y 18
+#define SNAKE_LENGTH (GRID_SIZE_X * GRID_SIZE_Y)
+// White
+#define SNAKE_COLOR 0xffff
+
+typedef struct Point {
+    uint8_t x, y;
+} Point;
 
 uint8_t numColors = 7;
 int8_t selectedColor = 0;
 uint16_t colors[7] = {WHITE, BLUE, GREEN, CYAN, RED, MAGENTA, YELLOW};
 
 char coverOld = true;
-rectangle rectOld = {10,20,10,20};
+//rectangle rectOld = {10,20,10,20};
 rectangle rect = {10,20,10,20};
+
+/*
+    'N' North
+    'S' South
+    'E' East
+    'W' West
+*/
+char buttonPressed = 'E';
+
+Point snake[SNAKE_LENGTH];
+Point food = {5,5};
+uint8_t snakeHead = 0;
+uint8_t snakeLength = 1;
+char gameOver = FALSE;
 
 unsigned schedule_time = 0;
 ISR(TIMER1_COMPA_vect) {
@@ -269,6 +287,28 @@ void init_sleep()
 	 stdin = &uin;
  }
 
+void init_snake()
+{
+    DDRC    = ddrc;  // Restore display configuration of Port C
+    PORTC   = portc;
+    _delay_ms(3);
+
+    uint8_t i;
+    for(i=0; i<3; i++) {
+        snake[i].x = i+3;
+        snake[i].y = 3;
+    }
+    snakeLength = 3;
+    snakeHead = 2;
+    gameOver = FALSE;
+
+    char buttonPressed = 'E';
+    Point snake[SNAKE_LENGTH];
+    Point food = {5,5};
+
+    clear_screen();
+}
+
 int main(void)
 {
 
@@ -305,6 +345,9 @@ int main(void)
    tasks[i].TickFct = &draw_task;
 
    init_processor();
+
+    
+   init_snake();
     
    while(1);   
 }
@@ -370,20 +413,20 @@ void pushed(char type) {
     printf("Pressed %c\n", type);
     switch(type) {
         case 'W':
-           rect.top += STEP_SIZE;
-           rect.bottom += STEP_SIZE;
-           break;
+           if(buttonPressed != 'S')
+                buttonPressed = 'N';
+           break; 
         case 'E':
-           rect.top -= STEP_SIZE;
-           rect.bottom -= STEP_SIZE;
-           break;
+           if(buttonPressed != 'N')
+                buttonPressed = 'S';
+           break; 
         case 'S':
-           rect.right -= STEP_SIZE;
-           rect.left -= STEP_SIZE;
-           break;
+           if(buttonPressed != 'E')
+                buttonPressed = 'W';
+           break; 
         case 'N':
-           rect.right += STEP_SIZE;
-           rect.left += STEP_SIZE;
+           if(buttonPressed != 'W')
+                buttonPressed = 'E';
            break; 
         case 'C':
            coverOld = false;
@@ -418,13 +461,14 @@ D0_H
          D1_H 
          D1_R
          
-             C2_Z C3_Z C4_L C5_Z
-         if (!(PIND & _BV(PD1))) { pushed('C'); }
+        if(gameOver) {
+                 C2_Z C3_Z C4_L C5_Z
+             if (!(PIND & _BV(PD1))) { init_snake(); }
+        }
 
+       //  D1_L
 
-         D1_L
-
-             C2_R C3_R
+       //      C2_R C3_R
        /*  if (!(PINC & _BV(PC2))) { pushed("A"); }
 
 
@@ -449,21 +493,114 @@ D0_H
     return ++state;
 }
 
-int draw_task(int state) {
-//    printf( "-> Enter Task 3 [% 3d]\n", state);
-    //printf( "-> Rotor [% 3d]\n", scroll_delta);
-    DDRC    = ddrc;  // Restore display configuration of Port C
-         PORTC   = portc;
-    _delay_ms(3);
-    //display_string("Hello! \n");
-    if(coverOld) {
-        fill_rectangle(rectOld, BACKGROUND_COLOR);
+void updateSnake()
+{
+    switch(buttonPressed) {
+        case 'W':
+            if(snake[snakeHead].x == 0) {
+                gameOver = TRUE;
+                break;
+            }
+            snake[snakeHead+1].x = snake[snakeHead].x-1;
+            snake[snakeHead+1].y = snake[snakeHead].y;
+            snakeHead++;
+            break;
+        case 'E':
+            if(snake[snakeHead].x > GRID_SIZE_X-2) {
+                gameOver = TRUE;
+                break;
+            }
+            snake[snakeHead+1].x = snake[snakeHead].x+1;
+            snake[snakeHead+1].y = snake[snakeHead].y;
+            snakeHead++;
+            break;
+        case 'S':
+            if(snake[snakeHead].y ==0) {
+                gameOver = TRUE;
+                break;
+            }
+            snake[snakeHead+1].x = snake[snakeHead].x;
+            snake[snakeHead+1].y = snake[snakeHead].y-1;
+            snakeHead++;
+            break;
+        case 'N':
+            if(snake[snakeHead].y > GRID_SIZE_Y-2) {
+                gameOver = TRUE;
+                break;
+            }
+            snake[snakeHead+1].x = snake[snakeHead].x;
+            snake[snakeHead+1].y = snake[snakeHead].y+1;
+            snakeHead++;
+            break;
     }
-    fill_rectangle(rect, colors[selectedColor]);
-    rectOld.top = rect.top;
-    rectOld.bottom = rect.bottom;
-    rectOld.right = rect.right;
-    rectOld.left = rect.left;
+}
+
+int draw_task(int state) {
+    DDRC    = ddrc;  // Restore display configuration of Port C
+    PORTC   = portc;
+    _delay_ms(3);
+    updateSnake();
+
+    if(gameOver) {
+        display_string("GAME OVER \n");
+        return 0;
+    }
+
+    uint8_t h = snakeHead;
+
+    if(snake[h].x == food.x && snake[h].y == food.y) {
+        snakeLength++;
+        //Pick a new 'random' place on the grid
+        food.x = (food.y + 43) % (GRID_SIZE_X-1);
+        food.y = (food.x + 71) % (GRID_SIZE_Y-1);
+    } else {
+        rect.top = food.y*BLOCK_SIZE;
+        rect.bottom = (food.y+1)*BLOCK_SIZE;
+        rect.right = (food.x+1)*BLOCK_SIZE;
+        rect.left = food.x*BLOCK_SIZE;
+        fill_rectangle(rect, YELLOW);
+    }
+    
+    rect.top = snake[h].y*BLOCK_SIZE;
+    rect.bottom = (snake[h].y+1)*BLOCK_SIZE;
+    rect.right = (snake[h].x+1)*BLOCK_SIZE;
+    rect.left = snake[h].x*BLOCK_SIZE;
+    fill_rectangle(rect, RED);
+    h--;
+    uint8_t i = snakeLength-1; //-1 as head handled before
+    for(; i; --i) {
+        rect.top = snake[h].y*BLOCK_SIZE;
+        rect.bottom = (snake[h].y+1)*BLOCK_SIZE;
+        rect.right = (snake[h].x+1)*BLOCK_SIZE;
+        rect.left = snake[h].x*BLOCK_SIZE;
+        fill_rectangle(rect, SNAKE_COLOR);
+        if(h>0) {
+            h--;
+        } else {
+            h = SNAKE_LENGTH-1;
+        }
+        
+    }
+    //Cover old snake
+    if(h >= 0) {
+        rect.top = snake[h].y*BLOCK_SIZE;
+        rect.bottom = (snake[h].y+1)*BLOCK_SIZE;
+        rect.right = (snake[h].x+1)*BLOCK_SIZE;
+        rect.left = snake[h].x*BLOCK_SIZE;
+    } else {
+        rect.top = snake[SNAKE_LENGTH-1].y*BLOCK_SIZE;
+        rect.bottom = (snake[SNAKE_LENGTH-1].y+1)*BLOCK_SIZE;
+        rect.right = (snake[SNAKE_LENGTH-1].x+1)*BLOCK_SIZE;
+        rect.left = snake[SNAKE_LENGTH-1].x*BLOCK_SIZE;
+    }
+    fill_rectangle(rect, BLACK);
+
+    rect.top = 0;
+    rect.bottom = (GRID_SIZE_Y)*BLOCK_SIZE;
+    rect.right = (GRID_SIZE_X)*BLOCK_SIZE;
+    rect.left = 0;
+    draw_rectangle(rect, BLUE);
+
     coverOld = true;
     D1_Z
 
