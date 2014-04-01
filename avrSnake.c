@@ -501,36 +501,36 @@ void updateSnake()
                 gameOver = TRUE;
                 break;
             }
-            snake[snakeHead+1].x = snake[snakeHead].x-1;
-            snake[snakeHead+1].y = snake[snakeHead].y;
-            snakeHead++;
+            snake[(snakeHead+1) % SNAKE_LENGTH].x = snake[snakeHead].x-1;
+            snake[(snakeHead+1) % SNAKE_LENGTH].y = snake[snakeHead].y;
+            snakeHead = (snakeHead+1) % SNAKE_LENGTH;
             break;
         case 'E':
             if(snake[snakeHead].x > GRID_SIZE_X-2) {
                 gameOver = TRUE;
                 break;
             }
-            snake[snakeHead+1].x = snake[snakeHead].x+1;
-            snake[snakeHead+1].y = snake[snakeHead].y;
-            snakeHead++;
+            snake[(snakeHead+1) % SNAKE_LENGTH].x = snake[snakeHead].x+1;
+            snake[(snakeHead+1) % SNAKE_LENGTH].y = snake[snakeHead].y;
+            snakeHead = (snakeHead+1) % SNAKE_LENGTH;
             break;
         case 'S':
             if(snake[snakeHead].y ==0) {
                 gameOver = TRUE;
                 break;
             }
-            snake[snakeHead+1].x = snake[snakeHead].x;
-            snake[snakeHead+1].y = snake[snakeHead].y-1;
-            snakeHead++;
+            snake[(snakeHead+1) % SNAKE_LENGTH].x = snake[snakeHead].x;
+            snake[(snakeHead+1) % SNAKE_LENGTH].y = snake[snakeHead].y-1;
+            snakeHead = (snakeHead+1) % SNAKE_LENGTH;
             break;
         case 'N':
             if(snake[snakeHead].y > GRID_SIZE_Y-2) {
                 gameOver = TRUE;
                 break;
             }
-            snake[snakeHead+1].x = snake[snakeHead].x;
-            snake[snakeHead+1].y = snake[snakeHead].y+1;
-            snakeHead++;
+            snake[(snakeHead+1) % SNAKE_LENGTH].x = snake[snakeHead].x;
+            snake[(snakeHead+1) % SNAKE_LENGTH].y = snake[snakeHead].y+1;
+            snakeHead = (snakeHead+1) % SNAKE_LENGTH;
             break;
     }
 }
@@ -566,14 +566,21 @@ int draw_task(int state) {
     rect.right = (snake[h].x+1)*BLOCK_SIZE;
     rect.left = snake[h].x*BLOCK_SIZE;
     fill_rectangle(rect, RED);
-    h--;
+    if(h>0) {
+        h--;
+    } else {
+        h = SNAKE_LENGTH-1;
+    }
+    //Replace old head with white
+    rect.top = snake[h].y*BLOCK_SIZE;
+    rect.bottom = (snake[h].y+1)*BLOCK_SIZE;
+    rect.right = (snake[h].x+1)*BLOCK_SIZE;
+    rect.left = snake[h].x*BLOCK_SIZE;
+    fill_rectangle(rect, SNAKE_COLOR);
+
+    // An awful way to reduce h by snakeLength with a loop around
     uint8_t i = snakeLength-1; //-1 as head handled before
     for(; i; --i) {
-        rect.top = snake[h].y*BLOCK_SIZE;
-        rect.bottom = (snake[h].y+1)*BLOCK_SIZE;
-        rect.right = (snake[h].x+1)*BLOCK_SIZE;
-        rect.left = snake[h].x*BLOCK_SIZE;
-        fill_rectangle(rect, SNAKE_COLOR);
         if(h>0) {
             h--;
         } else {
@@ -582,17 +589,10 @@ int draw_task(int state) {
         
     }
     //Cover old snake
-    if(h >= 0) {
-        rect.top = snake[h].y*BLOCK_SIZE;
-        rect.bottom = (snake[h].y+1)*BLOCK_SIZE;
-        rect.right = (snake[h].x+1)*BLOCK_SIZE;
-        rect.left = snake[h].x*BLOCK_SIZE;
-    } else {
-        rect.top = snake[SNAKE_LENGTH-1].y*BLOCK_SIZE;
-        rect.bottom = (snake[SNAKE_LENGTH-1].y+1)*BLOCK_SIZE;
-        rect.right = (snake[SNAKE_LENGTH-1].x+1)*BLOCK_SIZE;
-        rect.left = snake[SNAKE_LENGTH-1].x*BLOCK_SIZE;
-    }
+    rect.top = snake[h].y*BLOCK_SIZE;
+    rect.bottom = (snake[h].y+1)*BLOCK_SIZE;
+    rect.right = (snake[h].x+1)*BLOCK_SIZE;
+    rect.left = snake[h].x*BLOCK_SIZE;
     fill_rectangle(rect, BLACK);
 
     rect.top = 0;
