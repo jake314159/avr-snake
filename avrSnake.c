@@ -11,7 +11,6 @@
    - Slowed down to make tasks observable over serial connection
    - Adapted to avr-libc conventions
 
-
    Copyright (c) 2012 UC Regents. All rights reserved.
 
       Developed by: Frank Vahid, Bailey Miller, and Tony Givargis
@@ -50,6 +49,32 @@
 
     /////////////// SCHEDULER CODE HEADER END  //////////////
 
+    /////////////// revRotDriver CODE HEADER START //////////////
+        Author: Klaus-Peter Zauner            March 2014 
+            using components written by
+            Steve Gunn and Peter Dannegger
+
+   Licence: This work is licensed under the Creative Commons Attribution License.
+            View this license at http:	//creativecommons.org/about/licenses/
+
+    /////////////// revRotDriver CODE HEADER END //////////////
+
+    /////////////// GAME CODE HEADER START //////////////
+        Author: Jacob Causon            
+                April 2014 
+
+   Licensed under the Apache License, Version 2.0 (the "License"); 
+    you may not use this file except in compliance with the License. 
+    You may obtain a copy of the License at
+
+   http://www.apache.org/licenses/LICENSE-2.0
+   Unless required by applicable law or agreed to in writing, software distributed
+    under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
+    CONDITIONS OF ANY KIND, either express or implied. See the License for the
+    specific language governing permissions and limitations under the License.
+
+    /////////////// GAME CODE HEADER END //////////////
+
 */
 
 #include <avr/io.h>
@@ -60,6 +85,9 @@
 
 #include "debug.h"
 #include "lcdlib/lcd.h"
+#include "RIOS.h"
+#include "revRotDriver.h"
+#include "avrSnake.h"
 
 #define TRUE 1
 #define FALSE 0
@@ -67,56 +95,8 @@
 #define LED_ON PORTB |= _BV(PINB7)
 #define LED_OFF PORTB &= ~_BV(PINB7)
 
-#define STDIO_BAUD  9600
-#define PRNTBUF 200
 
-#define D0_L  DDRD |=  _BV(PD0); PORTD &= ~_BV(PD0);
-#define D0_H  DDRD |=  _BV(PD0); PORTD |=  _BV(PD0);
-#define D0_R  DDRD &= ~_BV(PD0); PORTD |=  _BV(PD0);
-#define D0_Z  DDRD &= ~_BV(PD0); PORTD &= ~_BV(PD0);
-
-#define D1_L  DDRD |=  _BV(PD1); PORTD &= ~_BV(PD1);
-#define D1_H  DDRD |=  _BV(PD1); PORTD |=  _BV(PD1);
-#define D1_R  DDRD &= ~_BV(PD1); PORTD |=  _BV(PD1);
-#define D1_Z  DDRD &= ~_BV(PD1); PORTD &= ~_BV(PD1);
-
-
-#define C2_L  DDRC |=  _BV(PC2); PORTC &= ~_BV(PC2);
-#define C2_H  DDRC |=  _BV(PC2); PORTC |=  _BV(PC2);
-#define C2_R  DDRC &= ~_BV(PC2); PORTC |=  _BV(PC2);
-#define C2_Z  DDRC &= ~_BV(PC2); PORTC &= ~_BV(PC2);
-
-#define C3_L  DDRC |=  _BV(PC3); PORTC &= ~_BV(PC3);
-#define C3_H  DDRC |=  _BV(PC3); PORTC |=  _BV(PC3);
-#define C3_R  DDRC &= ~_BV(PC3); PORTC |=  _BV(PC3);
-#define C3_Z  DDRC &= ~_BV(PC3); PORTC &= ~_BV(PC3);
-
-#define C4_L  DDRC |=  _BV(PC4); PORTC &= ~_BV(PC4);
-#define C4_H  DDRC |=  _BV(PC4); PORTC |=  _BV(PC4);
-#define C4_R  DDRC &= ~_BV(PC4); PORTC |=  _BV(PC4);
-#define C4_Z  DDRC &= ~_BV(PC4); PORTC &= ~_BV(PC4);
-
-#define C5_L  DDRC |=  _BV(PC5); PORTC &= ~_BV(PC5);
-#define C5_H  DDRC |=  _BV(PC5); PORTC |=  _BV(PC5);
-#define C5_R  DDRC &= ~_BV(PC5); PORTC |=  _BV(PC5);
-#define C5_Z  DDRC &= ~_BV(PC5); PORTC &= ~_BV(PC5);
-
-/* #define DZ DDRD=0; PORTD=0; */
-#define CZ DDRD=0; PORTD=0;
-
-/*
-   Copyright (c) 2013 Frank Vahid, Tony Givargis, and
-   Bailey Miller. Univ. of California, Riverside and Irvine.
-   RIOS version 1.2
-*/
-typedef struct task {
-   unsigned char running;       // 1 indicates task is running
-   unsigned long period;        // Rate at which the task should tick
-   unsigned long elapsedTime;   // Time since task's previous tick
-   void (*TickFct)(void);       // Function to call for task's tick
-} task;
-
-
+//Scheduler data
 #define TASK_NUMBER 2
 task tasks[TASK_NUMBER];
 const unsigned char tasksNum = TASK_NUMBER;
@@ -137,25 +117,11 @@ unsigned char runningTasks[TASK_NUMBER] = {255}; // Track running tasks, [0] alw
 const unsigned long idleTask = 255; // 0 highest priority, 255 lowest
 unsigned char currentTask = 0; // Index of highest priority task in runningTasks
 
-uint8_t ddrc, portc;
+
 
         /////////////////////////////
         // START OF THE GAME CODE ///
         /////////////////////////////
-
-#define STEP_SIZE 4
-#define BLOCK_SIZE 17
-#define GRID_SIZE_X 14
-#define GRID_SIZE_Y 18
-#define SNAKE_LENGTH_MAX (GRID_SIZE_X * GRID_SIZE_Y)
-
-#define BACKGROUND_COLOR BLACK
-#define SNAKE_COLOR WHITE
-#define SNAKE_HEAD_COLOR RED
-
-typedef struct Point {
-    uint8_t x, y;
-} Point;
 
 rectangle rect = {10,20,10,20};
 
@@ -172,7 +138,9 @@ Point food = {5,5};
 uint8_t snakeHead = 0;
 uint8_t snakeLength = 1;
 char gameOver = FALSE;
+uint8_t score = 0;
 
+// The scheduler
 unsigned schedule_time = 0;
 ISR(TIMER1_COMPA_vect) {
    sleep_disable();
@@ -202,7 +170,6 @@ ISR(TIMER1_COMPA_vect) {
       tasks[i].elapsedTime += tasksPeriodGCD;
    }
 }
-
 void init_processor() {
     
     /* Configure 16 bit Timer for ISR  */
@@ -218,6 +185,7 @@ void init_processor() {
     sei();
 }
 
+// Set up the LED to show on GAME OVER
 void init_LED() {
     DDRB |= _BV(PINB7); /* set LED as output */
 
@@ -233,24 +201,27 @@ void init_LED() {
     
 }
 
- void init_stdio_uart1(void)
- {
-	 /* Configure UART1 baud rate, one start bit, 8-bit, no parity and one stop bit */
-	 UBRR1H = (F_CPU/(STDIO_BAUD*16L)-1) >> 8;
-	 UBRR1L = (F_CPU/(STDIO_BAUD*16L)-1);
-	 UCSR1B = _BV(RXEN1) | _BV(TXEN1);
-	 UCSR1C = _BV(UCSZ10) | _BV(UCSZ11);
+// Set up serial output for debugging 
+void init_stdio_uart1(void)
+{
+    /* Configure UART1 baud rate, one start bit, 8-bit, no parity and one stop bit */
+    UBRR1H = (F_CPU/(STDIO_BAUD*16L)-1) >> 8;
+    UBRR1L = (F_CPU/(STDIO_BAUD*16L)-1);
+    UCSR1B = _BV(RXEN1) | _BV(TXEN1);
+    UCSR1C = _BV(UCSZ10) | _BV(UCSZ11);
 
-	 /* Setup new streams for input and output */
-	 static FILE uout = FDEV_SETUP_STREAM(uputchar1, NULL, _FDEV_SETUP_WRITE);
-	 static FILE uin = FDEV_SETUP_STREAM(NULL, ugetchar1, _FDEV_SETUP_READ);
+    /* Setup new streams for input and output */
+    static FILE uout = FDEV_SETUP_STREAM(uputchar1, NULL, _FDEV_SETUP_WRITE);
+    static FILE uin = FDEV_SETUP_STREAM(NULL, ugetchar1, _FDEV_SETUP_READ);
 
-	 /* Redirect all standard streams to UART0 */
-	 stdout = &uout;
-	 stderr = &uout;
-	 stdin = &uin;
- }
+    /* Redirect all standard streams to UART0 */
+    stdout = &uout;
+    stderr = &uout;
+    stdin = &uin;
+}
 
+// Set the snake in the init position
+// and clear the screen
 void init_snake()
 {
     DDRC    = ddrc;  // Restore display configuration of Port C
@@ -269,10 +240,12 @@ void init_snake()
     buttonPressed = 'E';
     food.x = 5;
     food.y = 5;
+    score = 0;
 
     clear_screen();
 }
 
+//Actually init things
 int main(void)
 {
     init_debug_uart1(); //Can be removed when not debugging
@@ -327,7 +300,9 @@ void pushed(char type) {
     }
 }
 
-void button_task(void) {
+// Task to check for button presses
+void button_task(void)
+{
     D0_H
     D0_R
 
@@ -363,12 +338,27 @@ void button_task(void) {
     PORTC   = portc;
 }
 
+// Game over
+void set_gameOver()
+{
+    gameOver = TRUE;
+    display_string("SCORE:");
+
+    //4 is 3 digits for the number and 1 for \0
+    char str[4];
+    snprintf(str, 4, "%d", score);
+
+    display_string(str);
+    display_string("\n\n\r\r");
+    
+}
+
 void updateSnake()
 {
     switch(buttonPressed) {
         case 'W':
             if(snake[snakeHead].x == 0) {
-                gameOver = TRUE;
+                set_gameOver();
                 break;
             }
             snake[(snakeHead+1) % SNAKE_LENGTH_MAX].x = snake[snakeHead].x-1;
@@ -377,7 +367,7 @@ void updateSnake()
             break;
         case 'E':
             if(snake[snakeHead].x > GRID_SIZE_X-2) {
-                gameOver = TRUE;
+                set_gameOver();
                 break;
             }
             snake[(snakeHead+1) % SNAKE_LENGTH_MAX].x = snake[snakeHead].x+1;
@@ -386,7 +376,7 @@ void updateSnake()
             break;
         case 'S':
             if(snake[snakeHead].y ==0) {
-                gameOver = TRUE;
+                set_gameOver();
                 break;
             }
             snake[(snakeHead+1) % SNAKE_LENGTH_MAX].x = snake[snakeHead].x;
@@ -395,7 +385,7 @@ void updateSnake()
             break;
         case 'N':
             if(snake[snakeHead].y > GRID_SIZE_Y-2) {
-                gameOver = TRUE;
+                set_gameOver();
                 break;
             }
             snake[(snakeHead+1) % SNAKE_LENGTH_MAX].x = snake[snakeHead].x;
@@ -415,7 +405,7 @@ void checkSelfCollide()
     uint8_t i = snakeLength-1;
     for(; i; --i) {
         if(snake[h].x == snake[snakeHead].x && snake[h].y == snake[snakeHead].y) {
-            gameOver = TRUE;
+            set_gameOver();
             return;
         }
 
@@ -427,17 +417,20 @@ void checkSelfCollide()
     }
 }
 
-void draw_task(void) {
+void draw_task(void)
+{
     DDRC    = ddrc;  // Restore display configuration of Port C
     PORTC   = portc;
     /* We still need a delay here for the pins to update BUT the other functions */
     /* Make it up so we don't need the extra delay                               */
     //_delay_ms(3);
-    updateSnake();
-    checkSelfCollide();
+    if(!gameOver) {
+        updateSnake();
+        checkSelfCollide();
+    }
 
     if(gameOver) {
-        display_string("GAME OVER  ");
+        display_string("GAME OVER  \n");
         LED_ON;
         return;
     }
@@ -448,6 +441,7 @@ void draw_task(void) {
     // Then draw it
     if(snake[h].x == food.x && snake[h].y == food.y) {
         snakeLength++;
+        score++;
         //Pick a new 'random' place on the grid
         food.x = (food.y + 43) % (GRID_SIZE_X-1);
         food.y = (food.x + 71) % (GRID_SIZE_Y-1);

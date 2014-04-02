@@ -118,7 +118,7 @@ void display_char(char c)
 	/* Carriage return starts a new line, or if the end of the
            display has been reached, clears the display.
 	 */
-	if (c == '\r') { 
+	if (c == '\n') { 
 	    display.x=0; display.y+=8;
 	    if (display.y >= display.height) { clear_screen(); }
 	    return;
