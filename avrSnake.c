@@ -139,29 +139,24 @@ unsigned char currentTask = 0; // Index of highest priority task in runningTasks
 
 uint8_t ddrc, portc;
 
-//Black
-#define BACKGROUND_COLOR 0x0000 
+        /////////////////////////////
+        // START OF THE GAME CODE ///
+        /////////////////////////////
 
 #define STEP_SIZE 4
-#define BLOCK_SIZE 14
-#define GRID_START_X 14
-#define GRID_START_Y 14
+#define BLOCK_SIZE 17
 #define GRID_SIZE_X 14
 #define GRID_SIZE_Y 18
-#define SNAKE_LENGTH (GRID_SIZE_X * GRID_SIZE_Y)
-// White
-#define SNAKE_COLOR 0xffff
+#define SNAKE_LENGTH_MAX (GRID_SIZE_X * GRID_SIZE_Y)
+
+#define BACKGROUND_COLOR BLACK
+#define SNAKE_COLOR WHITE
+#define SNAKE_HEAD_COLOR RED
 
 typedef struct Point {
     uint8_t x, y;
 } Point;
 
-uint8_t numColors = 7;
-int8_t selectedColor = 0;
-uint16_t colors[7] = {WHITE, BLUE, GREEN, CYAN, RED, MAGENTA, YELLOW};
-
-char coverOld = TRUE;
-//rectangle rectOld = {10,20,10,20};
 rectangle rect = {10,20,10,20};
 
 /*
@@ -172,7 +167,7 @@ rectangle rect = {10,20,10,20};
 */
 char buttonPressed = 'E';
 
-Point snake[SNAKE_LENGTH];
+Point snake[SNAKE_LENGTH_MAX];
 Point food = {5,5};
 uint8_t snakeHead = 0;
 uint8_t snakeLength = 1;
@@ -308,7 +303,6 @@ int main(void)
 }
 
 void pushed(char type) {
-    printf("Pressed %c\n", type);
     switch(type) {
         case 'W':
            if(buttonPressed != 'S')
@@ -327,50 +321,46 @@ void pushed(char type) {
                 buttonPressed = 'E';
            break; 
         case 'C':
-           coverOld = FALSE;
+           LED_OFF;
+           init_snake(); 
            break;
     }
 }
 
 void button_task(void) {
-    //printf( "-> Rotor [% 3d]\n", scroll_delta);
     D0_H
-     D0_R
+    D0_R
 
-     C2_H C3_H C4_H C5_L
-     _delay_ms(3);
-     if (!(PIND & _BV(PD0))) { pushed('S'); }
+    C2_H C3_H C4_H C5_L
+    _delay_ms(3);
+    if (!(PIND & _BV(PD0))) { pushed('S'); }
 
-     C2_H C3_H C4_L C5_H
-     _delay_ms(3);
-     if (!(PIND & _BV(PD0))) { pushed('W'); }
+    C2_H C3_H C4_L C5_H
+    _delay_ms(3);
+    if (!(PIND & _BV(PD0))) { pushed('W'); }
 
 
-     C2_H C3_L C4_H C5_H
-     _delay_ms(3);
-     if (!(PIND & _BV(PD0))) { pushed('N'); }
+    C2_H C3_L C4_H C5_H
+    _delay_ms(3);
+    if (!(PIND & _BV(PD0))) { pushed('N'); }
 
-         C2_L C3_H C4_H C5_H
-     _delay_ms(3);
-     if (!(PIND & _BV(PD0))) { pushed('E'); }
+    C2_L C3_H C4_H C5_H
+    _delay_ms(3);
+    if (!(PIND & _BV(PD0))) { pushed('E'); }
 
-     D0_Z
-
-     D1_H 
-     D1_R
+    D0_Z
+    D1_H 
+    D1_R
          
     if(gameOver) {
          C2_Z C3_Z C4_L C5_Z
          if (!(PIND & _BV(PD1))) { 
-            LED_OFF;
-            init_snake(); 
+            pushed('C');
         }
     }
 
     DDRC    = ddrc;  /* Restore display configuration of Port C */
     PORTC   = portc;
-
-    return;
 }
 
 void updateSnake()
@@ -381,54 +371,81 @@ void updateSnake()
                 gameOver = TRUE;
                 break;
             }
-            snake[(snakeHead+1) % SNAKE_LENGTH].x = snake[snakeHead].x-1;
-            snake[(snakeHead+1) % SNAKE_LENGTH].y = snake[snakeHead].y;
-            snakeHead = (snakeHead+1) % SNAKE_LENGTH;
+            snake[(snakeHead+1) % SNAKE_LENGTH_MAX].x = snake[snakeHead].x-1;
+            snake[(snakeHead+1) % SNAKE_LENGTH_MAX].y = snake[snakeHead].y;
+            snakeHead = (snakeHead+1) % SNAKE_LENGTH_MAX;
             break;
         case 'E':
             if(snake[snakeHead].x > GRID_SIZE_X-2) {
                 gameOver = TRUE;
                 break;
             }
-            snake[(snakeHead+1) % SNAKE_LENGTH].x = snake[snakeHead].x+1;
-            snake[(snakeHead+1) % SNAKE_LENGTH].y = snake[snakeHead].y;
-            snakeHead = (snakeHead+1) % SNAKE_LENGTH;
+            snake[(snakeHead+1) % SNAKE_LENGTH_MAX].x = snake[snakeHead].x+1;
+            snake[(snakeHead+1) % SNAKE_LENGTH_MAX].y = snake[snakeHead].y;
+            snakeHead = (snakeHead+1) % SNAKE_LENGTH_MAX;
             break;
         case 'S':
             if(snake[snakeHead].y ==0) {
                 gameOver = TRUE;
                 break;
             }
-            snake[(snakeHead+1) % SNAKE_LENGTH].x = snake[snakeHead].x;
-            snake[(snakeHead+1) % SNAKE_LENGTH].y = snake[snakeHead].y-1;
-            snakeHead = (snakeHead+1) % SNAKE_LENGTH;
+            snake[(snakeHead+1) % SNAKE_LENGTH_MAX].x = snake[snakeHead].x;
+            snake[(snakeHead+1) % SNAKE_LENGTH_MAX].y = snake[snakeHead].y-1;
+            snakeHead = (snakeHead+1) % SNAKE_LENGTH_MAX;
             break;
         case 'N':
             if(snake[snakeHead].y > GRID_SIZE_Y-2) {
                 gameOver = TRUE;
                 break;
             }
-            snake[(snakeHead+1) % SNAKE_LENGTH].x = snake[snakeHead].x;
-            snake[(snakeHead+1) % SNAKE_LENGTH].y = snake[snakeHead].y+1;
-            snakeHead = (snakeHead+1) % SNAKE_LENGTH;
+            snake[(snakeHead+1) % SNAKE_LENGTH_MAX].x = snake[snakeHead].x;
+            snake[(snakeHead+1) % SNAKE_LENGTH_MAX].y = snake[snakeHead].y+1;
+            snakeHead = (snakeHead+1) % SNAKE_LENGTH_MAX;
             break;
+    }
+}
+
+void checkSelfCollide()
+{
+    uint8_t h = snakeHead-1;
+    if(h<0) {
+        h = SNAKE_LENGTH_MAX-1;
+    }
+
+    uint8_t i = snakeLength-1;
+    for(; i; --i) {
+        if(snake[h].x == snake[snakeHead].x && snake[h].y == snake[snakeHead].y) {
+            gameOver = TRUE;
+            return;
+        }
+
+        if(h>0) {
+            h--;
+        } else {
+            h = SNAKE_LENGTH_MAX-1;
+        }
     }
 }
 
 void draw_task(void) {
     DDRC    = ddrc;  // Restore display configuration of Port C
     PORTC   = portc;
-    _delay_ms(3);
+    /* We still need a delay here for the pins to update BUT the other functions */
+    /* Make it up so we don't need the extra delay                               */
+    //_delay_ms(3);
     updateSnake();
+    checkSelfCollide();
 
     if(gameOver) {
-        display_string("GAME OVER \n");
+        display_string("GAME OVER  ");
         LED_ON;
         return;
     }
 
     uint8_t h = snakeHead;
 
+    // Check if we have run into the food and if we haven't
+    // Then draw it
     if(snake[h].x == food.x && snake[h].y == food.y) {
         snakeLength++;
         //Pick a new 'random' place on the grid
@@ -442,15 +459,16 @@ void draw_task(void) {
         fill_rectangle(rect, YELLOW);
     }
     
+    // Draw the snake head
     rect.top = snake[h].y*BLOCK_SIZE;
     rect.bottom = (snake[h].y+1)*BLOCK_SIZE;
     rect.right = (snake[h].x+1)*BLOCK_SIZE;
     rect.left = snake[h].x*BLOCK_SIZE;
-    fill_rectangle(rect, RED);
+    fill_rectangle(rect, SNAKE_HEAD_COLOR);
     if(h>0) {
         h--;
     } else {
-        h = SNAKE_LENGTH-1;
+        h = SNAKE_LENGTH_MAX-1;
     }
     //Replace old head with white
     rect.top = snake[h].y*BLOCK_SIZE;
@@ -465,10 +483,11 @@ void draw_task(void) {
         if(h>0) {
             h--;
         } else {
-            h = SNAKE_LENGTH-1;
+            h = SNAKE_LENGTH_MAX-1;
         }
         
     }
+
     //Cover old snake
     rect.top = snake[h].y*BLOCK_SIZE;
     rect.bottom = (snake[h].y+1)*BLOCK_SIZE;
@@ -476,18 +495,15 @@ void draw_task(void) {
     rect.left = snake[h].x*BLOCK_SIZE;
     fill_rectangle(rect, BLACK);
 
+    //Draw the outside border
     rect.top = 0;
     rect.bottom = (GRID_SIZE_Y)*BLOCK_SIZE;
     rect.right = (GRID_SIZE_X)*BLOCK_SIZE;
     rect.left = 0;
     draw_rectangle(rect, BLUE);
 
-    coverOld = TRUE;
     D1_Z
-
     D0_H
     D0_R
-
-    return;
 }
 
