@@ -2,64 +2,7 @@
 
     EXTRA WORK
 
-    /////////////// SCHEDULER CODE HEADER START //////////////
 
-   Template for preemptive version of RIOS implemented on an AVR
-   available from: http://www.cs.ucr.edu/~vahid/rios/rios_avr.htm
-   
-   Slightly modified by Klaus-Peter Zauner, Feb 2014:
-   - Slowed down to make tasks observable over serial connection
-   - Adapted to avr-libc conventions
-
-   Copyright (c) 2012 UC Regents. All rights reserved.
-
-      Developed by: Frank Vahid, Bailey Miller, and Tony Givargis
-      University of California, Riverside; University of California, Irvine
-      <http://www.riosscheduler.org>http://www.riosscheduler.org
-
-      Permission is hereby granted, free of charge, to any person
-      obtaining a copy of this software and associated documentation
-      files (the "Software"), to deal with the Software without
-      restriction, including without limitation the rights to use,
-      copy, modify, merge, publish, distribute, sublicense, and/or sell
-      copies of the Software, and to permit persons to whom the
-      Software is furnished to do so, subject to the following conditions:
-
-	  * Redistributions of source code must retain the above
-	    copyright notice, this list of conditions and the following
-	    disclaimers.
-	  * Redistributions in binary form must reproduce the above
-	    copyright notice, this list of conditions and the following
-	    disclaimers in the documentation and/or other materials
-	    provided with the distribution.
-	  * Neither the names of any of the developers or universities nor 
-	    the names of its contributors may be used to endorse or
-	    promote products derived from this Software without 
-	    specific prior written permission.
-
-      THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-      EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
-      OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-      NONINFRINGEMENT. IN NO EVENT SHALL THE CONTRIBUTORS OR COPYRIGHT
-      HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
-      WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
-      FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
-      OTHER DEALINGS WITH THE SOFTWARE.
-   (http://opensource.org/licenses/NCSA)	
-
-    /////////////// SCHEDULER CODE HEADER END  //////////////
-
-    /////////////// revRotDriver CODE HEADER START //////////////
-        Author: Klaus-Peter Zauner            March 2014 
-            using components written by
-            Steve Gunn and Peter Dannegger
-
-   Licence: This work is licensed under the Creative Commons Attribution License.
-            View this license at http:	//creativecommons.org/about/licenses/
-
-    /////////////// revRotDriver CODE HEADER END //////////////
-
-    /////////////// GAME CODE HEADER START //////////////
         Author: Jacob Causon            
                 April 2014 
 
@@ -73,14 +16,9 @@
     CONDITIONS OF ANY KIND, either express or implied. See the License for the
     specific language governing permissions and limitations under the License.
 
-    /////////////// GAME CODE HEADER END //////////////
 
 */
 
-#include <avr/io.h>
-#include <avr/sleep.h>
-#include <avr/interrupt.h>
-#include <math.h>
 #include <util/delay.h>
 
 #include "debug.h"
@@ -95,14 +33,15 @@
 #define LED_ON PORTB |= _BV(PINB7)
 #define LED_OFF PORTB &= ~_BV(PINB7)
 
-const unsigned long button_time = 40; //50ms
-const unsigned long draw_time = 150; //150ms
+// 37 * 1 = 37ms
+#define BUTTON_TIME 1;
+// 37 * 4 = 148ms
+#define DRAW_TIME 4;
+#define STEP_TIME 37.0
 
-
-
-        /////////////////////////////
-        // START OF THE GAME CODE ///
-        /////////////////////////////
+// Functions which are only for use within the program
+void pushed(char type);
+void checkSelfCollide(void);
 
 rectangle rect = {10,20,10,20};
 
@@ -114,15 +53,14 @@ rectangle rect = {10,20,10,20};
 */
 char buttonPressed = 'E';
 
+// Circular array which stores the snake
 Point snake[SNAKE_LENGTH_MAX];
+
 Point food = {5,5};
 uint8_t snakeHead = 0;
 uint8_t snakeLength = 1;
 char gameOver = FALSE;
 uint8_t score = 0;
-
-// The scheduler
-
 
 // Set up the LED to show on GAME OVER
 void init_LED() {
@@ -218,7 +156,6 @@ void set_gameOver()
 
     display_string(str);
     display_string("\n\n\r\r");
-    
 }
 
 void updateSnake()
@@ -340,6 +277,7 @@ void draw_task(void)
     fill_rectangle(rect, SNAKE_COLOR);
 
     // An awful way to reduce h by snakeLength with a loop around
+    // On an unsigned int
     uint8_t i = snakeLength-1; //-1 as head handled before
     for(; i; --i) {
         if(h>0) {
@@ -386,19 +324,21 @@ int main(void)
 
     task t;
 
-    t.period = button_time;
-    t.elapsedTime = button_time;
+    // Make the button read task
+    t.period = BUTTON_TIME;
+    t.elapsedTime = BUTTON_TIME;
     t.running = 0;
     t.TickFct = &button_task;
     addTask(t);
 
-    t.period = draw_time;
-    t.elapsedTime = draw_time;
+    // Make the draw screen task
+    t.period = DRAW_TIME;
+    t.elapsedTime = DRAW_TIME;
     t.running = 0;
     t.TickFct = &draw_task;
     addTask(t);
 
-    init_processor(1.0); //Every 1 ms
+    init_processor(STEP_TIME); //Step size of 1 ms
  
     while(1);   
 }

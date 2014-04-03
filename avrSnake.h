@@ -12,9 +12,7 @@ typedef struct Point {
 } Point;
 
 void init_snake(void);
-void pushed(char type);
 void button_task(void);
 void set_gameOver(void);
 void updateSnake(void);
-void checkSelfCollide(void);
 void draw_task(void);

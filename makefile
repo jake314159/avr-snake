@@ -1,6 +1,6 @@
 
-all: avrSnake.hex
-install: transfer
+all: avrSnake.hex size
+install: transfer size
 
 SHELL = /bin/sh
 
@@ -10,6 +10,7 @@ LIBS = RIOS.c
 CC = avr-gcc
 OBJCOPY = avr-objcopy
 AVRDUDE = avrdude
+SIZE    = avr-size
 
 CC_FLAGS = -Wall -Os
 CHIP_COMPILE = atmega644p
@@ -22,8 +23,13 @@ $(FILE).elf: $(FILE).c lcdlib/liblcd.a
 lcdlib/liblcd.a: 
 	$(MAKE) -C lcdlib/make
 
-avrSnake.hex: avrSnake.elf
+$(FILE).hex: $(FILE).elf
 	$(OBJCOPY) -O ihex $(FILE).elf $(FILE).hex
+
+# Display size of file.
+size: $(FILE).elf
+	@echo
+	$(SIZE) -C --mcu=$(CHIP_COMPILE) $(FILE).elf
 
 transfer: avrSnake.hex
 	$(AVRDUDE) -c usbasp -p $(CHIP_FLASH) -U flash:w:$(FILE).hex

@@ -43,12 +43,8 @@
    (http://opensource.org/licenses/NCSA)	
 */
 
-#include <avr/io.h>
-#include <avr/sleep.h>
 #include <avr/interrupt.h>
-
 #include "RIOS.h"
-
 
 #define MAX_TASK_NUMBER 2
 
@@ -73,7 +69,6 @@ unsigned char currentTask = 0; // Index of highest priority task in runningTasks
 
 unsigned schedule_time = 0;
 ISR(TIMER1_COMPA_vect) {
-   sleep_disable();
    unsigned char i;
    for (i=0; i < tasksNum; ++i) { // Heart of scheduler code
       if (  (tasks[i].elapsedTime >= tasks[i].period) // Task ready
