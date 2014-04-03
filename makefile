@@ -5,7 +5,7 @@ install: transfer
 SHELL = /bin/sh
 
 FILE = avrSnake
-LIBS = debug.h
+LIBS = RIOS.c
 
 CC = avr-gcc
 OBJCOPY = avr-objcopy

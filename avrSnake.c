@@ -1,6 +1,6 @@
 /* Skeleton Code for COMP2215 Task 3
 
-    REGULAR WORK
+    EXTRA WORK
 
     /////////////// SCHEDULER CODE HEADER START //////////////
 
@@ -95,27 +95,8 @@
 #define LED_ON PORTB |= _BV(PINB7)
 #define LED_OFF PORTB &= ~_BV(PINB7)
 
-
-//Scheduler data
-#define TASK_NUMBER 2
-task tasks[TASK_NUMBER];
-const unsigned char tasksNum = TASK_NUMBER;
-
-uint8_t activeProcesses = 0;
-
-const double tick_ms = 1.0;  /* Real time between ticks in ms */
-const unsigned long tasksPeriodGCD = 1;  // Timer tick rate
 const unsigned long button_time = 40; //50ms
 const unsigned long draw_time = 150; //150ms
-
-void init_LED();
-
-void button_task(void);
-void draw_task(void);
-
-unsigned char runningTasks[TASK_NUMBER] = {255}; // Track running tasks, [0] always idleTask
-const unsigned long idleTask = 255; // 0 highest priority, 255 lowest
-unsigned char currentTask = 0; // Index of highest priority task in runningTasks
 
 
 
@@ -141,83 +122,18 @@ char gameOver = FALSE;
 uint8_t score = 0;
 
 // The scheduler
-unsigned schedule_time = 0;
-ISR(TIMER1_COMPA_vect) {
-   sleep_disable();
-   unsigned char i;
-   for (i=0; i < tasksNum; ++i) { // Heart of scheduler code
-      if (  (tasks[i].elapsedTime >= tasks[i].period) // Task ready
-          && (runningTasks[currentTask] > i) // Task priority > current task priority
-          && (!tasks[i].running) // Task not already running (no self-preemption)
-         ) { 
-	   cli();	  
-         tasks[i].elapsedTime = 0; // Reset time since last tick
-         tasks[i].running = 1; // Mark as running
-         currentTask += 1;
-         runningTasks[currentTask] = i; // Add to runningTasks
-         activeProcesses++; //Count the number of active processes
-       sei();
-	 
-         tasks[i].TickFct(); // Execute tick
-         
-       cli();	 
-         tasks[i].running = 0; // Mark as not running
-         runningTasks[currentTask] = idleTask; // Remove from runningTasks
-         currentTask -= 1;
-         activeProcesses--; //Count the number of active processes
-       sei();
-      }
-      tasks[i].elapsedTime += tasksPeriodGCD;
-   }
-}
-void init_processor() {
-    
-    /* Configure 16 bit Timer for ISR  */
-    TCCR1B = _BV(WGM12)   /* Clear Timer on Compare Match Mode (CTC) */
-          | _BV(CS12)
-          | _BV(CS10); 	 /* F_CPU / 1024 */
 
-    OCR1A = (uint16_t)(F_CPU * tick_ms / (1024.0 * 1000)- 0.5);
-
-    TIMSK1 = _BV(OCIE1A); //enables compare match interrupt
-    TCNT1 = 0;
-         
-    sei();
-}
 
 // Set up the LED to show on GAME OVER
 void init_LED() {
     DDRB |= _BV(PINB7); /* set LED as output */
 
-    /* Free up port C: disable JTAG (protected): */
-    MCUCR |= _BV(JTD); /* Requires 2 writes      */
-    MCUCR |= _BV(JTD); /* within 4 clock cycles  */
-    
     DDRB &= ~_BV(PINC0)   /* inputs */
  	  & ~_BV(PINC1);
  
     PORTC |= _BV(PINC0)   /* enable pull ups */
    	   | _BV(PINC1);
     
-}
-
-// Set up serial output for debugging 
-void init_stdio_uart1(void)
-{
-    /* Configure UART1 baud rate, one start bit, 8-bit, no parity and one stop bit */
-    UBRR1H = (F_CPU/(STDIO_BAUD*16L)-1) >> 8;
-    UBRR1L = (F_CPU/(STDIO_BAUD*16L)-1);
-    UCSR1B = _BV(RXEN1) | _BV(TXEN1);
-    UCSR1C = _BV(UCSZ10) | _BV(UCSZ11);
-
-    /* Setup new streams for input and output */
-    static FILE uout = FDEV_SETUP_STREAM(uputchar1, NULL, _FDEV_SETUP_WRITE);
-    static FILE uin = FDEV_SETUP_STREAM(NULL, ugetchar1, _FDEV_SETUP_READ);
-
-    /* Redirect all standard streams to UART0 */
-    stdout = &uout;
-    stderr = &uout;
-    stdin = &uin;
 }
 
 // Set the snake in the init position
@@ -243,36 +159,6 @@ void init_snake()
     score = 0;
 
     clear_screen();
-}
-
-//Actually init things
-int main(void)
-{
-    init_debug_uart1(); //Can be removed when not debugging
-    init_LED();
-
-    init_lcd();
-    portc  = PORTC;  /* Store display configuration of Port C */
-    ddrc   = DDRC;
-    
-    init_snake();
-
-    // Priority assigned to lower position tasks in array
-    unsigned char i = 0;
-
-    tasks[i].period = button_time;
-    tasks[i].elapsedTime = tasks[i].period;
-    tasks[i].running = 0;
-    tasks[i].TickFct = &button_task;
-    ++i;
-    tasks[i].period = draw_time;
-    tasks[i].elapsedTime = tasks[i].period;
-    tasks[i].running = 0;
-    tasks[i].TickFct = &draw_task;
-
-    init_processor();
- 
-    while(1);   
 }
 
 void pushed(char type) {
@@ -303,35 +189,17 @@ void pushed(char type) {
 // Task to check for button presses
 void button_task(void)
 {
-    D0_H
-    D0_R
+    D0_H D0_R
 
-    C2_H C3_H C4_H C5_L
-    _delay_ms(3);
-    if (!(PIND & _BV(PD0))) { pushed('S'); }
+    IF_BUTTON_S { pushed('S'); }
+    IF_BUTTON_W { pushed('W'); }
+    IF_BUTTON_N { pushed('N'); }
+    IF_BUTTON_E { pushed('E'); }
 
-    C2_H C3_H C4_L C5_H
-    _delay_ms(3);
-    if (!(PIND & _BV(PD0))) { pushed('W'); }
-
-
-    C2_H C3_L C4_H C5_H
-    _delay_ms(3);
-    if (!(PIND & _BV(PD0))) { pushed('N'); }
-
-    C2_L C3_H C4_H C5_H
-    _delay_ms(3);
-    if (!(PIND & _BV(PD0))) { pushed('E'); }
-
-    D0_Z
-    D1_H 
-    D1_R
+    D0_Z D1_H D1_R
          
     if(gameOver) {
-         C2_Z C3_Z C4_L C5_Z
-         if (!(PIND & _BV(PD1))) { 
-            pushed('C');
-        }
+         IF_BUTTON_C { pushed('C'); }
     }
 
     DDRC    = ddrc;  /* Restore display configuration of Port C */
@@ -499,5 +367,39 @@ void draw_task(void)
     D1_Z
     D0_H
     D0_R
+}
+
+//Actually init things
+int main(void)
+{
+    /* Free up port C: disable JTAG (protected): */
+    MCUCR |= _BV(JTD); /* Requires 2 writes      */
+    MCUCR |= _BV(JTD); /* within 4 clock cycles  */
+
+    init_LED();
+
+    init_lcd();
+    portc  = PORTC;  /* Store display configuration of Port C */
+    ddrc   = DDRC;
+    
+    init_snake();
+
+    task t;
+
+    t.period = button_time;
+    t.elapsedTime = button_time;
+    t.running = 0;
+    t.TickFct = &button_task;
+    addTask(t);
+
+    t.period = draw_time;
+    t.elapsedTime = draw_time;
+    t.running = 0;
+    t.TickFct = &draw_task;
+    addTask(t);
+
+    init_processor(1.0); //Every 1 ms
+ 
+    while(1);   
 }
 

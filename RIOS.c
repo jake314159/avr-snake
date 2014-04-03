@@ -43,13 +43,81 @@
    (http://opensource.org/licenses/NCSA)	
 */
 
-typedef struct task {
-   unsigned char running;       // 1 indicates task is running
-   unsigned long period;        // Rate at which the task should tick
-   unsigned long elapsedTime;   // Time since task's previous tick
-   void (*TickFct)(void);       // Function to call for task's tick
-} task;
+#include <avr/io.h>
+#include <avr/sleep.h>
+#include <avr/interrupt.h>
 
-void init_processor(double tick_ms);
-void addTask(task t);
+#include "RIOS.h"
 
+
+#define MAX_TASK_NUMBER 2
+
+task tasks[MAX_TASK_NUMBER];
+unsigned char tasksNum = 0;
+
+uint8_t activeProcesses = 0;
+
+//const double tick_ms = 1.0;  /* Real time between ticks in ms */
+const unsigned long tasksPeriodGCD = 1;  // Timer tick rate
+
+
+void init_LED();
+
+void button_task(void);
+void draw_task(void);
+
+unsigned char runningTasks[MAX_TASK_NUMBER] = {255}; // Track running tasks, [0] always idleTask
+const unsigned long idleTask = 255; // 0 highest priority, 255 lowest
+unsigned char currentTask = 0; // Index of highest priority task in runningTasks
+
+
+unsigned schedule_time = 0;
+ISR(TIMER1_COMPA_vect) {
+   sleep_disable();
+   unsigned char i;
+   for (i=0; i < tasksNum; ++i) { // Heart of scheduler code
+      if (  (tasks[i].elapsedTime >= tasks[i].period) // Task ready
+          && (runningTasks[currentTask] > i) // Task priority > current task priority
+          && (!tasks[i].running) // Task not already running (no self-preemption)
+         ) { 
+	   cli();	  
+         tasks[i].elapsedTime = 0; // Reset time since last tick
+         tasks[i].running = 1; // Mark as running
+         currentTask += 1;
+         runningTasks[currentTask] = i; // Add to runningTasks
+         activeProcesses++; //Count the number of active processes
+       sei();
+	 
+         tasks[i].TickFct(); // Execute tick
+         
+       cli();	 
+         tasks[i].running = 0; // Mark as not running
+         runningTasks[currentTask] = idleTask; // Remove from runningTasks
+         currentTask -= 1;
+         activeProcesses--; //Count the number of active processes
+       sei();
+      }
+      tasks[i].elapsedTime += tasksPeriodGCD;
+   }
+}
+
+void init_processor(double tick_ms) {
+    
+    /* Configure 16 bit Timer for ISR  */
+    TCCR1B = _BV(WGM12)   /* Clear Timer on Compare Match Mode (CTC) */
+          | _BV(CS12)
+          | _BV(CS10); 	 /* F_CPU / 1024 */
+
+    OCR1A = (uint16_t)(F_CPU * tick_ms / (1024.0 * 1000)- 0.5);
+
+    TIMSK1 = _BV(OCIE1A); //enables compare match interrupt
+    TCNT1 = 0;
+         
+    sei();
+}
+
+void addTask(task t)
+{
+    tasks[tasksNum] = t;
+    tasksNum++;
+}
