@@ -22,7 +22,7 @@
 #include <util/delay.h>
 
 #include "debug.h"
-#include "lcdlib/lcd.h"
+#include "lcd.h"
 #include "RIOS.h"
 #include "revRotDriver.h"
 #include "avrSnake.h"
