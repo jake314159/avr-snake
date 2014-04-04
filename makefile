@@ -12,6 +12,7 @@ OBJCOPY = avr-objcopy
 AVRDUDE = avrdude
 SIZE    = avr-size
 
+# To debug add -DDEBUG to CC_FLAGS
 CC_FLAGS = -Wall
 CHIP_COMPILE = atmega644p
 CHIP_FLASH = m644p

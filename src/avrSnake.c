@@ -62,6 +62,11 @@ uint8_t snakeLength = 1;
 char gameOver = FALSE;
 uint8_t score = 0;
 
+//Only have pause available if in debug mode
+#if DEBUG
+  char pause = FALSE;
+#endif
+
 // Set up the LED to show on GAME OVER
 void init_LED() {
     DDRB |= _BV(PINB7); /* set LED as output */
@@ -118,8 +123,17 @@ void pushed(char type) {
                 buttonPressed = 'E';
            break; 
         case 'C':
-           LED_OFF;
-           init_snake(); 
+           #if DEBUG
+             if(gameOver) {
+                 LED_OFF;
+                 init_snake(); 
+             } else {
+                 pause = !pause;
+             }
+           #else
+             LED_OFF;
+             init_snake(); 
+           #endif
            break;
     }
 }
@@ -136,9 +150,14 @@ void button_task(void)
 
     D0_Z D1_H D1_R
          
-    if(gameOver) {
+    //The if statment should be removed if in debug mode
+    #if !DEBUG
+      if(gameOver) {
+    #endif
          IF_BUTTON_C { pushed('C'); }
-    }
+    #if !DEBUG
+      }
+    #endif
 
     DDRC    = ddrc;  /* Restore display configuration of Port C */
     PORTC   = portc;
@@ -224,6 +243,10 @@ void checkSelfCollide()
 
 void draw_task(void)
 {
+    #if DEBUG
+      if(pause) return;
+    #endif
+
     DDRC    = ddrc;  // Restore display configuration of Port C
     PORTC   = portc;
     /* We still need a delay here for the pins to update BUT the other functions */
