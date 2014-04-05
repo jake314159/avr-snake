@@ -23,9 +23,9 @@ Compiling and installing has been tested on *Ubuntu 14.04* with the *atmega644p*
 Example images
 -------------------
 
-![Example image 1](images/1.jpg)
+![Example image 1](images/1_small.jpg)
 
-![Example image 2](images/2.jpg)
+![Example image 2](images/2_small.jpg)
 
 Original setup
 -------------------
