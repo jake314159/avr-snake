@@ -19,17 +19,15 @@ CHIP_FLASH = m644p
 DF_CPU = 12000000
 
 .PHONY: all
-all: $(BIN)avrSnake.hex 
-#size
+all: $(BIN)avrSnake.hex size
 .PHONY: install
-install: transfer 
-#size
+install: transfer size
 
 $(BIN)$(FILE).elf: $(SRC)$(FILE).c lcdlib/liblcd.a $(SRC)lcd.h $(BIN)
 	$(CC) -mmcu=$(CHIP_COMPILE) -DF_CPU=$(DF_CPU) -Os $(CC_FLAGS) $(SRC)$(FILE).c $(LIBS) lcdlib/liblcd.a -o $(BIN)$(FILE).elf
 
 lcdlib/liblcd.a: 
-	$(MAKE) -C lcdlib/make
+	$(MAKE) -C lcdlib/makefile
 
 $(BIN)$(FILE).hex: $(BIN)$(FILE).elf
 	$(OBJCOPY) -O ihex $(BIN)$(FILE).elf $(BIN)$(FILE).hex
